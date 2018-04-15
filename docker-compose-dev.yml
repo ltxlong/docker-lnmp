@@ -1,0 +1,103 @@
+version: '3'
+
+services:
+  ### Nginx container #########################################
+  nginx:
+      depends_on:
+        - phpfpm
+      build:
+        context: ./dockerfile/nginx
+        args:
+          TIME_ZONE: ${GLOBAL_TIME_ZONE}
+      privileged: true
+      ports:
+        - "${HTTP_PORT}:80"
+        - "${HTTPS_PORT}:443"
+      networks:
+        - frontend
+      volumes:
+        - ${GLOBAL_APP_PATH}www/:/var/www/html/:rw
+        - ${GLOBAL_APP_PATH}conf/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+        - ${GLOBAL_APP_PATH}conf/nginx/conf.d/:/etc/nginx/conf.d/:ro
+        - ${GLOBAL_APP_PATH}log/nginx/:/var/log/nginx/:rw
+      restart: always
+      
+      container_name: nginx
+
+  ### PHPFPM container #########################################
+
+  phpfpm:
+      depends_on:
+        - mysql
+        - redis
+      build:
+        context: ./dockerfile/phpfpm
+        args:
+          TIME_ZONE: ${GLOBAL_TIME_ZONE}
+          CHANGE_SOURCE: ${GLOBAL_CHANGE_SOURCE}
+      privileged: true
+      ports:
+        - "9000:9000"
+      networks:
+        - frontend
+        - backend
+      volumes:
+        - ${GLOBAL_APP_PATH}www/:/var/www/html/:rw
+        - ${GLOBAL_APP_PATH}conf/phpfpm/php.ini:/etc/php7/php.ini:ro
+        - ${GLOBAL_APP_PATH}conf/phpfpm/php-fpm.d/www.conf:/etc/php7/php-fpm.d/www.conf:rw
+        - ${GLOBAL_APP_PATH}log/phpfpm/:/var/log/php-fpm/:rw
+      restart: always
+
+      container_name: phpfpm
+
+  ### Mysql container #########################################
+
+  mysql:
+      build:
+        context: ./dockerfile/mysql
+        args:
+          TIME_ZONE: ${GLOBAL_TIME_ZONE}
+          CHANGE_SOURCE: ${GLOBAL_CHANGE_SOURCE}
+      privileged: true
+      ports:
+        - "${MYSQL_PORT}:3306"
+      networks:
+        - backend
+      volumes:
+        - ${GLOBAL_APP_PATH}conf/mysql/data/:/var/lib/mysql/:rw
+        - ${GLOBAL_APP_PATH}conf/mysql/my.cnf:/etc/mysql/my.cnf:ro
+        - ${GLOBAL_APP_PATH}log/mysql/error.log:/var/log/mysql/error.log:rw
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      restart: always
+      
+      container_name: mysql
+
+  ### Redis container #########################################
+
+  redis:
+      build:
+        context: ./dockerfile/redis
+        args:
+          TIME_ZONE: ${GLOBAL_TIME_ZONE}
+      privileged: true
+      ports:
+        - "${REDIS_PORT}:6379"
+      networks:
+        - backend
+      volumes:
+        - ${GLOBAL_APP_PATH}log/redis/redis.log:/var/log/redis/redis.log:rw
+      restart: always
+
+      container_name: redis
+  
+  ### network 注意缩进！networks的缩进和version、services一致，frontend、backend的缩进和具体的服务一致#################################################
+  
+networks:
+    frontend:
+    backend:
+
+volumes:
+  ninghao-unison-sync:
+    external: true
+
